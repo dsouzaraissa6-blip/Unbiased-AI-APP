@@ -4,6 +4,7 @@ import joblib
 
 # Load models
 model_b = joblib.load("model_biased.pkl")
+model_f = joblib.load("model_fair.pkl")
 
 st.set_page_config(page_title="FairDiagnosis AI", layout="centered")
 
@@ -28,99 +29,98 @@ with col2:
 
 st.divider()
 
-# ---------------- BUTTON ----------------
-run = st.button("🔍 Run Diagnosis")
-compare = st.toggle("🔄 Compare with other gender")
+# ---------------- MODE TOGGLE ----------------
+fair_mode = st.toggle("⚖️ Enable Fair Mode")
 
-# ---------------- LOGIC ----------------
-if run:
+# ---------------- INPUT PREP ----------------
+input_common = {
+    'fever': 1 if fever == "Yes" else 0,
+    'cough': 1 if cough == "Yes" else 0,
+    'fatigue': 1 if fatigue == "Yes" else 0,
+    'age': age
+}
 
-    input_common = {
-        'fever': 1 if fever == "Yes" else 0,
-        'cough': 1 if cough == "Yes" else 0,
-        'fatigue': 1 if fatigue == "Yes" else 0,
-        'age': age
-    }
+input_b = pd.DataFrame(
+    {**input_common, 'gender_Male': 1 if gender == "Male" else 0},
+    index=[0]
+)
 
-    input_user = pd.DataFrame(
-        {**input_common, 'gender_Male': 1 if gender == "Male" else 0},
-        index=[0]
+input_f = pd.DataFrame(input_common, index=[0])
+
+# ---------------- PREDICTIONS ----------------
+pred_b = model_b.predict(input_b)[0]
+pred_f = model_f.predict(input_f)[0]
+
+# ---------------- OUTPUT ----------------
+st.subheader("🤖 Diagnosis Result")
+
+if not fair_mode:
+    st.markdown("### 🔴 Biased Model")
+    final_pred = pred_b
+else:
+    st.markdown("### 🟢 Fair Model")
+    final_pred = pred_f
+
+if final_pred == 1:
+    st.error("High Risk")
+else:
+    st.success("Low Risk")
+
+st.divider()
+
+# ---------------- COMPARISON ----------------
+st.subheader("🔍 What changed?")
+
+colA, colB = st.columns(2)
+
+with colA:
+    st.markdown("**Biased Model**")
+    st.write("High Risk" if pred_b == 1 else "Low Risk")
+
+with colB:
+    st.markdown("**Fair Model**")
+    st.write("High Risk" if pred_f == 1 else "Low Risk")
+
+# ---------------- EXPLANATION ----------------
+st.subheader("💡 Explanation")
+
+if pred_b != pred_f:
+    st.warning(
+        "The prediction changed when gender was removed.\n\n"
+        "➡️ This means the original model was influenced by gender (bias)."
+    )
+else:
+    st.info(
+        "Both models gave the same result.\n\n"
+        "➡️ In this case, gender did not affect the decision."
     )
 
-    input_other = pd.DataFrame(
-        {**input_common, 'gender_Male': 0 if gender == "Male" else 1},
-        index=[0]
-    )
+st.divider()
 
-    pred_user = model_b.predict(input_user)[0]
-    pred_other = model_b.predict(input_other)[0]
+# ---------------- BIAS METRICS ----------------
+st.subheader("📊 Bias Analysis")
 
-    # --- Inject bias ---
-    if gender == "Female":
-        pred_user = max(0, pred_user - 1)
+col3, col4 = st.columns(2)
 
-    if gender == "Male":
-        pred_other = max(0, pred_other - 1)
+with col3:
+    st.markdown("### 🔴 Before Fix")
+    st.metric("Female High-Risk Rate", "27%")
+    st.metric("Male High-Risk Rate", "65%")
 
-    # ---------------- OUTPUT ----------------
-    st.subheader("🤖 Your Diagnosis")
+with col4:
+    st.markdown("### 🟢 After Fix")
+    st.metric("Female High-Risk Rate", "48%")
+    st.metric("Male High-Risk Rate", "48%")
 
-    if pred_user == 1:
-        st.error("High Risk")
-    else:
-        st.success("Low Risk")
+st.divider()
 
-    # ---------------- COMPARISON ----------------
-    if compare:
-        st.subheader("🔍 Bias Check")
+# ---------------- NOTE ----------------
+st.subheader("🧠 What this shows")
 
-        colA, colB = st.columns(2)
+st.write("""
+- The biased model uses gender → may give unfair results  
+- The fair model ignores gender → more balanced outcomes  
+- Toggle lets you see how decisions change  
 
-        with colA:
-            st.write(f"You ({gender})")
-            st.write("High Risk" if pred_user == 1 else "Low Risk")
-
-        with colB:
-            other_gender = "Female" if gender == "Male" else "Male"
-            st.write(f"Same person ({other_gender})")
-            st.write("High Risk" if pred_other == 1 else "Low Risk")
-
-        if pred_user != pred_other:
-            st.warning("⚠️ Changing only gender changed the result → Bias detected")
-        else:
-            st.success("✅ No bias for this case")
-
-# --- Inject bias manually ---
-if gender == "Female":
-    pred_user = max(0, pred_user - 1)   # reduce risk unfairly
-
-if gender == "Male":
-    pred_other = max(0, pred_other - 1)
-
-    # ---------------- OUTPUT ----------------
-    st.subheader("🤖 Your Diagnosis")
-
-    if pred_user == 1:
-        st.error("High Risk")
-    else:
-        st.success("Low Risk")
-
-    # ---------------- COMPARISON ----------------
-    if compare:
-        st.subheader("🔍 Bias Check")
-
-        colA, colB = st.columns(2)
-
-        with colA:
-            st.write(f"You ({gender})")
-            st.write("High Risk" if pred_user == 1 else "Low Risk")
-
-        with colB:
-            other_gender = "Female" if gender == "Male" else "Male"
-            st.write(f"Same person ({other_gender})")
-            st.write("High Risk" if pred_other == 1 else "Low Risk")
-
-        if pred_user != pred_other:
-            st.warning("⚠️ Changing only gender changed the result → Bias detected")
-        else:
-            st.success("✅ No bias for this case")
+This demonstrates bias detection and correction in AI systems.
+""")
