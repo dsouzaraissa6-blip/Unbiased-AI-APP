@@ -52,8 +52,15 @@ if run:
         index=[0]
     )
 
-    pred_user = model_b.predict(input_user)[0]
-    pred_other = model_b.predict(input_other)[0]
+   pred_user = model_b.predict(input_user)[0]
+pred_other = model_b.predict(input_other)[0]
+
+# --- Inject bias manually ---
+if gender == "Female":
+    pred_user = max(0, pred_user - 1)   # reduce risk unfairly
+
+if gender == "Male":
+    pred_other = max(0, pred_other - 1)
 
     # ---------------- OUTPUT ----------------
     st.subheader("🤖 Your Diagnosis")
