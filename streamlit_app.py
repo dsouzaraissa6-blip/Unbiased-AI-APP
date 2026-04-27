@@ -13,7 +13,7 @@ st.caption("Bias Detection & Correction in AI-based Diagnosis")
 
 st.divider()
 
-# ---------------- INPUT SECTION ----------------
+# ---------------- INPUT ----------------
 st.subheader("🧾 Patient Details")
 
 col1, col2 = st.columns(2)
@@ -29,7 +29,10 @@ with col2:
 
 st.divider()
 
-# ---------------- MODEL INPUT ----------------
+# ---------------- MODE TOGGLE ----------------
+fair_mode = st.toggle("⚖️ Enable Fair Mode")
+
+# ---------------- INPUT PREP ----------------
 input_common = {
     'fever': 1 if fever == "Yes" else 0,
     'cough': 1 if cough == "Yes" else 0,
@@ -51,41 +54,50 @@ pred_f = model_f.predict(input_f)[0]
 # ---------------- OUTPUT ----------------
 st.subheader("🤖 Diagnosis Result")
 
-col_out1, col_out2 = st.columns(2)
-
-with col_out1:
+if not fair_mode:
     st.markdown("### 🔴 Biased Model")
-    if pred_b == 1:
-        st.error("High Risk")
-    else:
-        st.success("Low Risk")
-
-with col_out2:
+    final_pred = pred_b
+else:
     st.markdown("### 🟢 Fair Model")
-    if pred_f == 1:
-        st.error("High Risk")
-    else:
-        st.success("Low Risk")
+    final_pred = pred_f
+
+if final_pred == 1:
+    st.error("High Risk")
+else:
+    st.success("Low Risk")
 
 st.divider()
+
+# ---------------- COMPARISON ----------------
+st.subheader("🔍 What changed?")
+
+colA, colB = st.columns(2)
+
+with colA:
+    st.markdown("**Biased Model**")
+    st.write("High Risk" if pred_b == 1 else "Low Risk")
+
+with colB:
+    st.markdown("**Fair Model**")
+    st.write("High Risk" if pred_f == 1 else "Low Risk")
 
 # ---------------- EXPLANATION ----------------
 st.subheader("💡 Explanation")
 
 if pred_b != pred_f:
     st.warning(
-        "⚠️ The prediction changed when gender was removed.\n\n"
-        "This indicates the model was influenced by gender, showing bias."
+        "The prediction changed when gender was removed.\n\n"
+        "➡️ This means the original model was influenced by gender (bias)."
     )
 else:
-    st.success(
-        "✅ Both models gave the same result.\n\n"
-        "This means gender did not affect the decision in this case."
+    st.info(
+        "Both models gave the same result.\n\n"
+        "➡️ In this case, gender did not affect the decision."
     )
 
 st.divider()
 
-# ---------------- BIAS INSIGHT ----------------
+# ---------------- BIAS METRICS ----------------
 st.subheader("📊 Bias Analysis")
 
 col3, col4 = st.columns(2)
@@ -102,14 +114,13 @@ with col4:
 
 st.divider()
 
-# ---------------- FINAL NOTE ----------------
+# ---------------- NOTE ----------------
 st.subheader("🧠 What this shows")
 
 st.write("""
-This prototype demonstrates how AI systems can produce biased outcomes when sensitive features like gender are used.
+- The biased model uses gender → may give unfair results  
+- The fair model ignores gender → more balanced outcomes  
+- Toggle lets you see how decisions change  
 
-- The **biased model** uses gender and may produce unfair results.
-- The **fair model** removes gender to ensure more equitable decisions.
-
-This approach helps improve fairness in AI-assisted healthcare systems.
+This demonstrates bias detection and correction in AI systems.
 """)
