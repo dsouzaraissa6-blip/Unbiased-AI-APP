@@ -1,4 +1,10 @@
 import streamlit as st
+import pandas as pd
+import joblib
+
+# Load models
+model_b = joblib.load("model_biased.pkl")
+model_f = joblib.load("model_fair.pkl")
 
 st.set_page_config(page_title="FairDiagnosis AI", layout="centered")
 
@@ -23,39 +29,59 @@ with col2:
 
 st.divider()
 
-# ---------------- MODEL LOGIC ----------------
-fair_mode = st.toggle("⚖️ Enable Fair Mode")
+# ---------------- MODEL INPUT ----------------
+input_common = {
+    'fever': 1 if fever == "Yes" else 0,
+    'cough': 1 if cough == "Yes" else 0,
+    'fatigue': 1 if fatigue == "Yes" else 0,
+    'age': age
+}
 
-# Base prediction logic (simple demo)
-risk_score = 0
+input_b = pd.DataFrame(
+    {**input_common, 'gender_Male': 1 if gender == "Male" else 0},
+    index=[0]
+)
 
-if fever == "Yes":
-    risk_score += 1
-if cough == "Yes":
-    risk_score += 1
-if fatigue == "Yes":
-    risk_score += 1
-if age > 60:
-    risk_score += 1
+input_f = pd.DataFrame(input_common, index=[0])
 
-base_prediction = 1 if risk_score >= 2 else 0
-
-# Introduce bias
-if not fair_mode:
-    if gender == "Female":
-        prediction = 0  # biased reduction
-    else:
-        prediction = base_prediction
-else:
-    prediction = base_prediction  # fair version
+# ---------------- PREDICTIONS ----------------
+pred_b = model_b.predict(input_b)[0]
+pred_f = model_f.predict(input_f)[0]
 
 # ---------------- OUTPUT ----------------
 st.subheader("🤖 Diagnosis Result")
 
-if prediction == 1:
-    st.success("High Risk")
+col_out1, col_out2 = st.columns(2)
+
+with col_out1:
+    st.markdown("### 🔴 Biased Model")
+    if pred_b == 1:
+        st.error("High Risk")
+    else:
+        st.success("Low Risk")
+
+with col_out2:
+    st.markdown("### 🟢 Fair Model")
+    if pred_f == 1:
+        st.error("High Risk")
+    else:
+        st.success("Low Risk")
+
+st.divider()
+
+# ---------------- EXPLANATION ----------------
+st.subheader("💡 Explanation")
+
+if pred_b != pred_f:
+    st.warning(
+        "⚠️ The prediction changed when gender was removed.\n\n"
+        "This indicates the model was influenced by gender, showing bias."
+    )
 else:
-    st.info("Low Risk")
+    st.success(
+        "✅ Both models gave the same result.\n\n"
+        "This means gender did not affect the decision in this case."
+    )
 
 st.divider()
 
@@ -76,14 +102,14 @@ with col4:
 
 st.divider()
 
-# ---------------- EXPLANATION ----------------
-st.subheader("💡 What this shows")
+# ---------------- FINAL NOTE ----------------
+st.subheader("🧠 What this shows")
 
 st.write("""
-This prototype demonstrates how AI systems can develop bias when trained on skewed data.
+This prototype demonstrates how AI systems can produce biased outcomes when sensitive features like gender are used.
 
-- In biased mode, one group receives fewer high-risk predictions.
-- In fair mode, predictions are balanced across groups.
+- The **biased model** uses gender and may produce unfair results.
+- The **fair model** removes gender to ensure more equitable decisions.
 
-This helps ensure equitable AI-assisted medical decision-making.
+This approach helps improve fairness in AI-assisted healthcare systems.
 """)
