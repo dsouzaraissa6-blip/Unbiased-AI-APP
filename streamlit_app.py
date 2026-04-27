@@ -52,8 +52,43 @@ if run:
         index=[0]
     )
 
-   pred_user = model_b.predict(input_user)[0]
-pred_other = model_b.predict(input_other)[0]
+    pred_user = model_b.predict(input_user)[0]
+    pred_other = model_b.predict(input_other)[0]
+
+    # --- Inject bias ---
+    if gender == "Female":
+        pred_user = max(0, pred_user - 1)
+
+    if gender == "Male":
+        pred_other = max(0, pred_other - 1)
+
+    # ---------------- OUTPUT ----------------
+    st.subheader("🤖 Your Diagnosis")
+
+    if pred_user == 1:
+        st.error("High Risk")
+    else:
+        st.success("Low Risk")
+
+    # ---------------- COMPARISON ----------------
+    if compare:
+        st.subheader("🔍 Bias Check")
+
+        colA, colB = st.columns(2)
+
+        with colA:
+            st.write(f"You ({gender})")
+            st.write("High Risk" if pred_user == 1 else "Low Risk")
+
+        with colB:
+            other_gender = "Female" if gender == "Male" else "Male"
+            st.write(f"Same person ({other_gender})")
+            st.write("High Risk" if pred_other == 1 else "Low Risk")
+
+        if pred_user != pred_other:
+            st.warning("⚠️ Changing only gender changed the result → Bias detected")
+        else:
+            st.success("✅ No bias for this case")
 
 # --- Inject bias manually ---
 if gender == "Female":
